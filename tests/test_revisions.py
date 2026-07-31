@@ -144,14 +144,17 @@ class TestCoalescing:
         assert [r.text for r in store.history(ESSAY)] == ["past the window", "kept"]
 
     def test_a_different_actor_is_never_coalesced_away(self, store):
-        """An agent's rewrite is the edit you most want to see attributed, so it must not
-        disappear into a revision recorded by the human a minute earlier."""
-        store.record(ESSAY, "what I wrote", actor=HUMAN, now=at(0))
-        store.record(ESSAY, "what the model rewrote", actor=AGENT, now=at(1))
+        """An agent overwriting a draft is the edit you most want to see attributed, so it
+        must not disappear into a revision the human recorded a minute earlier.
+
+        Note which way the attribution runs: the revision holding "my draft" is marked AGENT
+        because an agent is what displaced it."""
+        store.record(ESSAY, "my first paragraph", actor=HUMAN, now=at(0))
+        store.record(ESSAY, "my draft", actor=AGENT, now=at(1))
 
         assert [(r.text, r.actor) for r in store.history(ESSAY)] == [
-            ("what the model rewrote", AGENT),
-            ("what I wrote", HUMAN),
+            ("my draft", AGENT),
+            ("my first paragraph", HUMAN),
         ]
 
     def test_coalescing_is_per_target(self, store):

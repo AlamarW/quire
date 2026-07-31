@@ -24,8 +24,12 @@ from typing import Protocol
 
 HUMAN = "human"
 AGENT = "agent"
-"""Who made the edit. Recorded for after-the-fact judgement -- "did I write this or did a
-model?" is the question you ask when deciding whether to revert -- not as a review gate."""
+"""Who performed the edit that displaced this version -- not who wrote the version itself.
+
+Recorded for after-the-fact judgement: "a model overwrote this, do I want it back?" is the
+question you ask when deciding whether to revert, and it is asked of the edit, not of the
+prose. Coalescing depends on this reading too -- an agent's rewrite arriving moments after
+a human save must stay visible rather than folding into it."""
 
 DEFAULT_COALESCE_WINDOW = timedelta(minutes=30)
 """One writing session should leave one revision, not one per save. Measured from the
@@ -139,7 +143,8 @@ class RevisionStore:
         inside the coalescing window -- in which case the older revision is the more useful
         one to keep, and this returns None.
 
-        Call this with the text being replaced, before replacing it."""
+        Call this with the text being replaced, before replacing it. `actor` is whoever is
+        doing the replacing."""
         moment = now or datetime.now()
         latest = self.latest(target)
         if latest is not None and latest.actor == actor:
