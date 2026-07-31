@@ -44,8 +44,15 @@ apps becomes a decision the host makes rather than a fork in the implementation.
 | --- | --- |
 | `quire.config` | `$EDITOR` resolution, saved choices, the interactive picker, argv splitting |
 | `quire.editor` | The built-in Textual editor: layout, save/discard keys, the discard guard |
+| `quire.revisions` | Prior versions of replaced text: coalescing, actor attribution, revert |
 | `quire.words` | Word counting, words-per-minute, elapsed formatting |
 | `quire.terminal` | Cross-platform `clear_screen` |
+
+`quire.revisions` stores content through a `Codec` and records which codec wrote each row,
+so a journal that gains a passphrase can still read the revisions it wrote before it had
+one. Coalescing keeps the *oldest* version in a window -- the state a writing session
+started from -- because keeping the newest would make a session's own history the one thing
+it could not recover.
 
 `quire.config` takes an `EditorEnvironment` carrying the host's name, paths, and command
 formatter. Build it at call time rather than import time -- both apps keep module-level
