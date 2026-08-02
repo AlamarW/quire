@@ -57,6 +57,65 @@ class TestGetEditor:
         assert config.get_editor(env) == env.builtin_editor
         assert config.read_saved_editor(env) == env.builtin_editor
 
+    def test_a_saved_choice_is_never_re_prompted_for(self, env, monkeypatch):
+        """The picker is a first-run event. Asking again on every launch would be the most
+        annoying possible regression, so input() raises if it is reached at all."""
+        monkeypatch.setattr(config.os, "name", "nt")
+        config.save_editor_choice(env, "notepad")
+
+        def refuse(*args):
+            raise AssertionError("prompted despite a saved choice")
+
+        monkeypatch.setattr("builtins.input", refuse)
+        assert config.get_editor(env) == "notepad"
+
+
+class TestPicker:
+    """Menu positions are what the user actually types, so they are part of the contract."""
+
+    @pytest.fixture(autouse=True)
+    def only_notepad_is_installed(self, monkeypatch):
+        """shutil.which finding nothing leaves the built-in editor plus notepad (which is
+        offered unconditionally on Windows), making the numbering deterministic."""
+        monkeypatch.setattr(config.os, "name", "nt")
+        monkeypatch.setattr(config.shutil, "which", lambda executable: None)
+
+    def test_the_builtin_editor_is_offered_first(self, env, monkeypatch, capsys):
+        monkeypatch.setattr("builtins.input", lambda *args: "1")
+        assert config.prompt_editor_choice(env) == env.builtin_editor
+        assert "1. testapp's built-in editor" in capsys.readouterr().out
+
+    def test_notepad_is_second(self, env, monkeypatch):
+        monkeypatch.setattr("builtins.input", lambda *args: "2")
+        assert config.prompt_editor_choice(env) == "notepad"
+
+    def test_the_last_option_takes_a_custom_command(self, env, monkeypatch):
+        answers = iter(["3", "code --wait"])
+        monkeypatch.setattr("builtins.input", lambda *args: next(answers))
+        assert config.prompt_editor_choice(env) == "code --wait"
+
+    def test_an_empty_custom_command_asks_again(self, env, monkeypatch):
+        answers = iter(["3", "   ", "3", "vim"])
+        monkeypatch.setattr("builtins.input", lambda *args: next(answers))
+        assert config.prompt_editor_choice(env) == "vim"
+
+    def test_a_non_numeric_answer_asks_again(self, env, monkeypatch):
+        answers = iter(["nope", "1"])
+        monkeypatch.setattr("builtins.input", lambda *args: next(answers))
+        assert config.prompt_editor_choice(env) == env.builtin_editor
+
+    def test_an_out_of_range_answer_asks_again(self, env, monkeypatch):
+        answers = iter(["99", "1"])
+        monkeypatch.setattr("builtins.input", lambda *args: next(answers))
+        assert config.prompt_editor_choice(env) == env.builtin_editor
+
+    def test_the_picker_works_off_windows_too(self, env, monkeypatch):
+        """`<app> editor set` is available on every platform, unlike the automatic
+        first-run prompt."""
+        monkeypatch.setattr(config.os, "name", "posix")
+        monkeypatch.setattr("builtins.input", lambda *args: "1")
+        assert config.prompt_editor_choice(env) == env.builtin_editor
+
 
 class TestInjectedCmd:
     """The host app renders suggested commands; quire must not hardcode a prefix."""

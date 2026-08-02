@@ -243,6 +243,27 @@ class RevisionStore:
         ).fetchone()
         return row[0]
 
+    def reencode(self, codec: Codec) -> int:
+        """Rewrite every revision to use `codec`, returning how many rows changed.
+
+        A host that can rotate its key has to be able to rotate its history with it. journ
+        re-encrypts every entry when a passphrase is set, changed, or removed; without this
+        the revisions would stay under the old key and become permanently unreadable -- and
+        as a decode error from the codec, not a missing-codec error, so not even a clear one.
+
+        Read with a store whose `codecs` include the *old* codec, since each row is decoded
+        with whatever wrote it. Build a fresh store afterwards: this one's write codec is
+        stale.
+        """
+        rows = self.conn.execute(f"SELECT {_COLUMNS} FROM revision").fetchall()
+        for row in rows:
+            revision = self._row_to_revision(row)
+            self.conn.execute(
+                "UPDATE revision SET content = ?, codec = ? WHERE id = ?",
+                (codec.encode(revision.text), codec.name, revision.id),
+            )
+        return len(rows)
+
     def forget(self, target: RevisionTarget) -> None:
         """Drop a target's history, for when the record itself is deleted. quire has no
         foreign key to cascade from, since it does not know which table the host used."""

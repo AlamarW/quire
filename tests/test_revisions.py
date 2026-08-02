@@ -300,6 +300,56 @@ class TestOpaqueContent:
 
         assert RevisionStore(conn, codecs=[PlainTextCodec()]).count(ENTRY) == 1
 
+    def test_reencoding_moves_history_to_a_new_codec(self, conn):
+        """journ rotates its passphrase by re-encrypting every entry. History has to move
+        with it or it is silently lost."""
+        RevisionStore(conn, codecs=[PlainTextCodec()]).record(ENTRY, "in the clear", now=at(0))
+
+        rotating = RevisionStore(conn, codecs=[ReversingCodec(), PlainTextCodec()])
+        assert rotating.reencode(ReversingCodec()) == 1
+
+        assert conn.execute("SELECT codec FROM revision").fetchone()[0] == "reversed"
+        after = RevisionStore(conn, codecs=[ReversingCodec()])
+        assert [r.text for r in after.history(ENTRY)] == ["in the clear"]
+
+    def test_reencoding_can_go_back_to_plaintext(self, conn):
+        """`journ passphrase remove` stores entries unencrypted; history follows."""
+        RevisionStore(conn, codecs=[ReversingCodec()]).record(ENTRY, "encrypted", now=at(0))
+
+        RevisionStore(conn, codecs=[ReversingCodec(), PlainTextCodec()]).reencode(PlainTextCodec())
+
+        assert RevisionStore(conn, codecs=[PlainTextCodec()]).history(ENTRY)[0].text == "encrypted"
+
+    def test_reencoding_preserves_actor_and_timestamp(self, conn):
+        """Rotation is a storage detail; it must not look like someone edited the entry."""
+        RevisionStore(conn, codecs=[PlainTextCodec()]).record(
+            ENTRY, "text", actor=AGENT, now=at(0)
+        )
+
+        RevisionStore(conn, codecs=[ReversingCodec(), PlainTextCodec()]).reencode(ReversingCodec())
+
+        revision = RevisionStore(conn, codecs=[ReversingCodec()]).history(ENTRY)[0]
+        assert revision.actor == AGENT
+        assert revision.created_at == at(0)
+
+    def test_reencoding_covers_every_target_not_just_one(self, conn):
+        RevisionStore(conn, codecs=[PlainTextCodec()]).record(ENTRY, "one", now=at(0))
+        RevisionStore(conn, codecs=[PlainTextCodec()]).record(ESSAY, "two", now=at(0))
+
+        assert RevisionStore(
+            conn, codecs=[ReversingCodec(), PlainTextCodec()]
+        ).reencode(ReversingCodec()) == 2
+
+    def test_reencoding_an_empty_table_is_harmless(self, conn):
+        assert RevisionStore(conn).reencode(PlainTextCodec()) == 0
+
+    def test_reencoding_without_the_old_codec_refuses(self, conn):
+        """Better to fail loudly than to re-encode ciphertext as if it were prose."""
+        RevisionStore(conn, codecs=[ReversingCodec()]).record(ENTRY, "encrypted", now=at(0))
+
+        with pytest.raises(UnknownCodec):
+            RevisionStore(conn, codecs=[PlainTextCodec()]).reencode(PlainTextCodec())
+
     def test_a_store_needs_a_codec_to_write_with(self, conn):
         with pytest.raises(ValueError):
             RevisionStore(conn, codecs=[])
