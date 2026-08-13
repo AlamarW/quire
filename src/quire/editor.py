@@ -106,8 +106,8 @@ class EditorApp(App):
     # quit-without-confirming, so removing our binding would reintroduce exactly that data
     # loss through the framework.
     BINDINGS = [
-        Binding("ctrl+w", "save", "Save", priority=True),
-        Binding("ctrl+q", "cancel", "Exit", priority=True),
+        Binding("ctrl+w", "save", "Save & exit", priority=True),
+        Binding("ctrl+q", "cancel", "Discard & Exit", priority=True),
         ("escape", "cancel", "Discard & exit"),
     ]
 
@@ -158,6 +158,7 @@ class EditorApp(App):
 
     def action_save(self) -> None:
         self.result = EditorResult(text=self._current_text(), saved=True)
+        self.exit()
 
     def action_cancel(self) -> None:
         """Discard & exit -- but discarding UNSAVED CHANGES takes a second confirming press.
