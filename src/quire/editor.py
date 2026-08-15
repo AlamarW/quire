@@ -106,8 +106,8 @@ class EditorApp(App):
     # quit-without-confirming, so removing our binding would reintroduce exactly that data
     # loss through the framework.
     BINDINGS = [
-        Binding("ctrl+w", "save", "Save & exit", priority=True),
-        Binding("ctrl+q", "cancel", "Discard & Exit", priority=True),
+        Binding("ctrl+w", "save", "Save", priority=True),
+        Binding("ctrl+q", "cancel", "Discard | Exit", priority=True),
         ("escape", "cancel", "Discard & exit"),
     ]
 
@@ -158,20 +158,21 @@ class EditorApp(App):
 
     def action_save(self) -> None:
         self.result = EditorResult(text=self._current_text(), saved=True)
-        self.exit()
 
     def action_cancel(self) -> None:
-        """Discard & exit -- but discarding UNSAVED CHANGES takes a second confirming press.
+        """Discard | exit; but discarding UNSAVED CHANGES takes a second confirming press.
         A clean editor still exits on the first press. Any deliberate action in between
         (typing, saving, a host binding) cancels the pending discard.
 
         Either way the text comes back to the caller. Deciding it isn't worth keeping is the
         host's call to make, not this editor's."""
         text = self._current_text()
-        if text == self.initial_text or self._confirm_discard:
-            self.result = EditorResult(text=text, saved=False)
-            self.exit()
-            return
+        res_text = self.result
+        if res_text:
+            if text == self.initial_text or text == res_text.text or self._confirm_discard:
+                self.result = EditorResult(text=text, saved=False)
+                self.exit()
+                return
         self._confirm_discard = True
         self._refresh_status(count_words(text))
 
