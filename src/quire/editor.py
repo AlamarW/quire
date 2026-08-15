@@ -158,7 +158,8 @@ class EditorApp(App):
 
     def action_save(self) -> None:
         self.result = EditorResult(text=self._current_text(), saved=True)
-        self.initial_text = self.result.text 
+        self.initial_text = self.result.text
+        self._confirm_discard = False
         self._refresh_status(count_words(self.initial_text))
 
     def action_cancel(self) -> None:
@@ -168,9 +169,15 @@ class EditorApp(App):
 
         Either way the text comes back to the caller. Deciding it isn't worth keeping is the
         host's call to make, not this editor's."""
+        saved = False
         text = self._current_text()
-        if text == self.initial_text or self._confirm_discard:
-            self.result = EditorResult(text=text, saved=False)
+        if self.result is not None and text == self.result.text:
+            saved = True
+            self.result = EditorResult(text=text, saved=saved)
+            self.exit()
+
+        if text == self.initial_text or self._confirm_discard and saved == False:
+            self.result = EditorResult(text=text, saved=saved)
             self.exit()
             return
         self._confirm_discard = True
