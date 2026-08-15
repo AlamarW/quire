@@ -158,6 +158,7 @@ class EditorApp(App):
 
     def action_save(self) -> None:
         self.result = EditorResult(text=self._current_text(), saved=True)
+        self.initial_text = self.result
 
     def action_cancel(self) -> None:
         """Discard | exit; but discarding UNSAVED CHANGES takes a second confirming press.
@@ -167,12 +168,10 @@ class EditorApp(App):
         Either way the text comes back to the caller. Deciding it isn't worth keeping is the
         host's call to make, not this editor's."""
         text = self._current_text()
-        res_text = self.result
-        if res_text:
-            if text == self.initial_text or text == res_text.text or self._confirm_discard:
-                self.result = EditorResult(text=text, saved=False)
-                self.exit()
-                return
+        if text == self.initial_text or self._confirm_discard:
+            self.result = EditorResult(text=text, saved=False)
+            self.exit()
+            return
         self._confirm_discard = True
         self._refresh_status(count_words(text))
 
