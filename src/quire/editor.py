@@ -159,6 +159,8 @@ class EditorApp(App):
     def action_save(self) -> None:
         self.result = EditorResult(text=self._current_text(), saved=True)
         self.initial_text = self.result.text
+        print(f"INITIAL TEXT -> {self.initial_text}")
+        print(self.result.text)
 
     def action_cancel(self) -> None:
         """Discard | exit; but discarding UNSAVED CHANGES takes a second confirming press.
